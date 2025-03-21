@@ -34,14 +34,23 @@ export default function App({ Component, pageProps }: AppProps) {
   const router = useRouter()
 
   React.useEffect(() => {
-    // Initialize PostHog
-    posthog.init(process.env.NEXT_PUBLIC_POSTHOG_KEY as string, {
-      api_host: process.env.NEXT_PUBLIC_POSTHOG_HOST || 'https://eu.i.posthog.com',
-      capture_pageview: false, // We'll capture manually
+    // Initialize PostHog with proper configuration
+    const apiKey = process.env.NEXT_PUBLIC_POSTHOG_KEY as string;
+    const apiHost = process.env.NEXT_PUBLIC_POSTHOG_HOST || 'https://eu.i.posthog.com';
+    
+    console.log(`PostHog initializing with host ${apiHost}`);
+    
+    posthog.init(apiKey, {
+      api_host: apiHost,
+      capture_pageview: true, // Let's enable automatic pageview capture
+      autocapture: true,
+      persistence: 'localStorage+cookie',
       loaded: (posthog) => {
-        if (process.env.NODE_ENV === 'development') posthog.debug()
+        if (process.env.NODE_ENV === 'development') {
+          posthog.debug(true);
+        }
       }
-    })
+    });
 
     // Handle route changes
     function handleRouteChange() {
@@ -49,8 +58,8 @@ export default function App({ Component, pageProps }: AppProps) {
         Fathom.trackPageview()
       }
       
-      // Capture PostHog pageview
-      posthog.capture('$pageview')
+      // Explicitly capture PostHog pageview on route change
+      posthog.capture('$pageview');
     }
 
     // Initialize Fathom if configured
@@ -60,6 +69,9 @@ export default function App({ Component, pageProps }: AppProps) {
 
     // Subscribe to router changes
     router.events.on('routeChangeComplete', handleRouteChange)
+    
+    // Initial pageview
+    handleRouteChange();
 
     return () => {
       router.events.off('routeChangeComplete', handleRouteChange)
