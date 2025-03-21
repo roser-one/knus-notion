@@ -23,9 +23,7 @@ import { bootstrap } from '@/lib/bootstrap-client'
 import {
   fathomConfig,
   fathomId,
-  isServer,
-  posthogConfig,
-  posthogId
+  isServer
 } from '@/lib/config'
 
 if (!isServer) {
@@ -36,28 +34,35 @@ export default function App({ Component, pageProps }: AppProps) {
   const router = useRouter()
 
   React.useEffect(() => {
-    function onRouteChangeComplete() {
+    // Initialize PostHog
+    posthog.init(process.env.NEXT_PUBLIC_POSTHOG_KEY as string, {
+      api_host: process.env.NEXT_PUBLIC_POSTHOG_HOST || 'https://eu.i.posthog.com',
+      capture_pageview: false, // We'll capture manually
+      loaded: (posthog) => {
+        if (process.env.NODE_ENV === 'development') posthog.debug()
+      }
+    })
+
+    // Handle route changes
+    function handleRouteChange() {
       if (fathomId) {
         Fathom.trackPageview()
       }
-
-      if (posthogId) {
-        posthog.capture('$pageview')
-      }
+      
+      // Capture PostHog pageview
+      posthog.capture('$pageview')
     }
 
+    // Initialize Fathom if configured
     if (fathomId) {
       Fathom.load(fathomId, fathomConfig)
     }
 
-    if (posthogId) {
-      posthog.init(posthogId, posthogConfig)
-    }
-
-    router.events.on('routeChangeComplete', onRouteChangeComplete)
+    // Subscribe to router changes
+    router.events.on('routeChangeComplete', handleRouteChange)
 
     return () => {
-      router.events.off('routeChangeComplete', onRouteChangeComplete)
+      router.events.off('routeChangeComplete', handleRouteChange)
     }
   }, [router.events])
 
